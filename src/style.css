@@ -1,5 +1,11 @@
 @import 'tailwindcss';
 
+:root {
+  --color-primary: #10b981;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+}
+
 body {
   @apply bg-slate-950 text-slate-200 antialiased;
   background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, #020617 100%);
@@ -20,4 +26,68 @@ body {
   100% {
     transform: translateX(100%);
   }
+}
+
+@layer components {
+  .glass-card {
+    @apply rounded-2xl bg-slate-900/60 border border-slate-800/50 p-6 backdrop-blur-lg;
+  }
+
+  .app-sidebar {
+    @apply border-r border-slate-800/50 bg-slate-900/50 backdrop-blur-xl p-6 flex flex-col gap-6;
+  }
+
+  .brand-title {
+    @apply flex items-center gap-3 text-emerald-400 font-bold text-xl tracking-tight;
+  }
+
+  .brand-icon {
+    @apply w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-500 shadow-[0_0_15px_rgba(16,185,129,0.5)] flex items-center justify-center text-white text-sm;
+  }
+
+  .nav-link {
+    @apply px-4 py-3 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all;
+  }
+
+  .nav-link-active {
+    @apply bg-slate-800/80 text-emerald-400 border border-slate-700/50 shadow-inner;
+  }
+
+  .toast-message {
+    @apply fixed top-6 right-6 z-50 px-4 py-3 rounded-xl border border-red-500/30 bg-slate-900/95 text-sm text-slate-100 shadow-[0_0_20px_rgba(239,68,68,0.25)];
+  }
+}
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.25s ease;
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 #0f172a;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #334155;
+  border-radius: 8px;
 }
