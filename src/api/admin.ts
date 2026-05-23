@@ -1,5 +1,6 @@
 import { httpGet } from '../utils/request'
 import type {
+  AuthProfile,
   DashboardSummary,
   GuardrailDiagnostics,
   LlmMetricsResponse,
@@ -172,3 +173,5 @@ export const getLlmMetrics = (params?: { start?: string; end?: string }): Promis
   const suffix = query.toString() ? `?${query.toString()}` : ''
   return httpGet<LlmMetricsResponse>(`/api/v1/admin/metrics/llm${suffix}`)
 }
+
+export const getAuthMe = (): Promise<AuthProfile> => httpGet<AuthProfile>('/api/v1/admin/auth/me')

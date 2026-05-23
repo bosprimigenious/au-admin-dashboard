@@ -69,7 +69,10 @@
           :trace="trace"
           :loading="loadingTrace"
           empty-message="Choose a session from the left panel to render its execution topology."
+          @node-select="selectNode"
         />
+
+        <TraceNodeDetailPanel :node="selectedNode" />
 
         <div class="glass-card">
           <h3 class="mb-4 text-sm font-medium uppercase tracking-[0.24em] text-slate-400">Timeline</h3>
@@ -77,7 +80,13 @@
             <li
               v-for="(step, index) in timeline"
               :key="step.id"
-              class="flex items-start gap-4 rounded-xl border border-slate-800/70 bg-slate-950/60 px-4 py-3"
+              class="flex items-start gap-4 rounded-xl border px-4 py-3 cursor-pointer transition"
+              :class="
+                selectedNodeId === step.id
+                  ? 'border-cyan-300/30 bg-cyan-300/10'
+                  : 'border-slate-800/70 bg-slate-950/60 hover:border-slate-700'
+              "
+              @click="selectNode(step.id)"
             >
               <span class="mt-0.5 text-xs font-semibold text-cyan-300/80">{{ index + 1 }}</span>
               <div class="min-w-0 flex-1">
@@ -101,16 +110,17 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
 import EmptyState from '../components/EmptyState.vue'
 import SafetyRadarPanel from '../components/SafetyRadarPanel.vue'
+import TraceNodeDetailPanel from '../components/TraceNodeDetailPanel.vue'
 import TopologyTraceGraph from '../components/TopologyTraceGraph.vue'
 import { useAppStore } from '../store/appStore'
 import { useTraceStore } from '../store/traceStore'
-import type { TraceNodeStatus } from '../types/admin'
+import type { TraceNode, TraceNodeStatus } from '../types/admin'
 
 const props = defineProps<{
   agentId?: string
@@ -123,6 +133,14 @@ const appStore = useAppStore()
 const traceStore = useTraceStore()
 
 const agentInput = ref('')
+const selectedNodeId = ref('')
+
+const selectedNode = computed<TraceNode | null>(() => {
+  if (!trace.value || !selectedNodeId.value) {
+    return null
+  }
+  return trace.value.nodes.find((node) => node.id === selectedNodeId.value) ?? null
+})
 
 const {
   agentId: activeAgentId,
@@ -175,7 +193,12 @@ const reloadCurrentAgent = async () => {
   syncRoute(nextAgentId, traceStore.selectedSessionId)
 }
 
+const selectNode = (nodeId: string) => {
+  selectedNodeId.value = nodeId
+}
+
 const selectSession = async (sessionId: string) => {
+  selectedNodeId.value = ''
   await traceStore.fetchTrace(sessionId)
   syncRoute(activeAgentId.value, sessionId)
 }

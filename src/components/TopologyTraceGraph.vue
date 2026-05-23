@@ -48,6 +48,10 @@ import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 import type { TraceNodeStatus, TraceResponse } from '../types/admin'
 
+const emit = defineEmits<{
+  'node-select': [nodeId: string]
+}>()
+
 const props = withDefaults(
   defineProps<{
     trace: TraceResponse | null
@@ -155,6 +159,12 @@ const renderGraph = async (trace: TraceResponse) => {
         },
         behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
         autoFit: 'view',
+      })
+      graph.on('node:click', (event: unknown) => {
+        const nodeId = (event as { target?: { id?: string } }).target?.id
+        if (nodeId) {
+          emit('node-select', nodeId)
+        }
       })
       await graph.render()
     } else {

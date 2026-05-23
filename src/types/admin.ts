@@ -103,3 +103,8 @@ export interface GuardrailDiagnostics {
   scores: GuardrailScores
   warnings: MonitoringAlert[]
 }
+
+export interface AuthProfile {
+  role: string
+  auth_enabled: boolean
+}
