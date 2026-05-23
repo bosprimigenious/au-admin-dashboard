@@ -6,8 +6,12 @@
           <p class="text-xs uppercase tracking-[0.35em] text-cyan-300/70">Monitoring Center</p>
           <h2 class="mt-2 text-2xl font-semibold text-slate-100">LLM usage and alert stream</h2>
           <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-            Metrics are aggregated from persisted session messages. Token counts are estimated for dashboard visibility
-            until full OpenTelemetry billing hooks are wired in.
+            Metrics prefer OpenTelemetry LLM spans when
+            <code class="text-cyan-200">ADMIN_OTEL_SPAN_DIR</code> is available; otherwise session messages are used
+            with estimated token counts.
+          </p>
+          <p v-if="dataSource" class="mt-2 text-xs uppercase tracking-[0.24em] text-cyan-300/80">
+            Source: {{ dataSource }}
           </p>
         </div>
         <button
@@ -67,7 +71,7 @@ import LlmTrendChart from '../components/LlmTrendChart.vue'
 import { useMonitoringStore } from '../store/monitoringStore'
 
 const monitoringStore = useMonitoringStore()
-const { alerts, error, loading, series, totalCalls, totalTokens } = storeToRefs(monitoringStore)
+const { alerts, dataSource, error, loading, series, totalCalls, totalTokens } = storeToRefs(monitoringStore)
 
 const alertClass = (level: string) => {
   switch (level) {

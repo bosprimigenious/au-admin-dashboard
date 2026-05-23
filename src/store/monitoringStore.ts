@@ -13,6 +13,7 @@ export const useMonitoringStore = defineStore('monitoring', () => {
   const alerts = computed<MonitoringAlert[]>(() => metrics.value?.alerts ?? [])
   const totalCalls = computed(() => metrics.value?.total_calls ?? 0)
   const totalTokens = computed(() => metrics.value?.total_tokens ?? 0)
+  const dataSource = computed(() => metrics.value?.data_source ?? '')
 
   const fetchMetrics = async (params?: { start?: string; end?: string }) => {
     loading.value = true
@@ -36,6 +37,7 @@ export const useMonitoringStore = defineStore('monitoring', () => {
     alerts,
     totalCalls,
     totalTokens,
+    dataSource,
     fetchMetrics,
   }
 })

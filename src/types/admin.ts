@@ -24,6 +24,7 @@ export interface LlmMetricsResponse {
   total_calls: number
   total_tokens: number
   alerts: MonitoringAlert[]
+  data_source?: 'otel' | 'message_estimate' | string
 }
 
 export interface SessionRecord {
@@ -84,6 +85,7 @@ export interface TraceResponse {
   nodes: TraceNode[]
   edges: TraceEdge[]
   timeline: TraceNode[]
+  data_source?: 'otel' | 'message' | string
   diagnostics?: GuardrailDiagnostics | null
 }
 
