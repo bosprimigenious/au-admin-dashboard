@@ -1,7 +1,14 @@
 import { httpGet } from '../utils/request'
-import type { DashboardSummary, ResourceKind, ResourceRecord, ResourceStatus, SessionRecord, TracePayload } from '../types/admin'
-
-// Backend DTOs mirror the Phase 1 Blueprint contracts directly.
+import type {
+  DashboardSummary,
+  GuardrailDiagnostics,
+  LlmMetricsResponse,
+  ResourceKind,
+  ResourceRecord,
+  ResourceStatus,
+  SessionRecord,
+  TraceResponse,
+} from '../types/admin'
 interface AdminResourceItemDto {
   id: string
   name: string
@@ -22,11 +29,13 @@ interface AdminDashboardSummaryDto {
   total_knowledge: number
   total_workflows: number
   system_health: string
+  total_llm_calls_today?: number
+  total_tokens_today?: number
 }
 
 interface AdminSessionListDto {
   total: number
-  data: SessionRecord[]
+  data: AdminResourceItemDto[]
 }
 
 // These fields are UI placeholders until the backend exposes richer metadata.
@@ -55,7 +64,6 @@ const mapComponentType = (value: string): ResourceKind => {
   }
 }
 
-// Resource status normalization belongs in the API adapter so views only consume UI-safe enums.
 const mapResourceStatus = (value: string): ResourceStatus => {
   switch (value.trim().toUpperCase()) {
     case 'ACTIVE':
@@ -76,7 +84,6 @@ const mapResourceStatus = (value: string): ResourceStatus => {
   }
 }
 
-// System health normalization stays at the transport boundary to keep store/component wording consistent.
 export const normalizeSystemHealth = (value: string): string => {
   switch (value.trim().toUpperCase()) {
     case 'OK':
@@ -104,6 +111,15 @@ const toResourceRecord = (dto: AdminResourceItemDto): ResourceRecord => ({
   tags: [],
 })
 
+const toSessionRecord = (dto: AdminResourceItemDto): SessionRecord => ({
+  id: dto.id,
+  name: dto.name,
+  description: dto.description,
+  component_type: dto.component_type,
+  status: dto.status,
+  diagnostics: dto.diagnostics,
+})
+
 const getResourceList = async (path: string): Promise<ResourceRecord[]> => {
   const payload = await httpGet<AdminResourceListDto>(path)
   return payload.data.map(toResourceRecord)
@@ -113,6 +129,8 @@ export const getSummary = async (): Promise<DashboardSummary> => {
   const payload = await httpGet<AdminDashboardSummaryDto>('/api/v1/admin/resources/summary')
   return {
     ...payload,
+    total_llm_calls_today: payload.total_llm_calls_today ?? 0,
+    total_tokens_today: payload.total_tokens_today ?? 0,
     system_health: normalizeSystemHealth(payload.system_health),
   }
 }
@@ -125,23 +143,32 @@ export const getKnowledge = (): Promise<ResourceRecord[]> => getResourceList('/a
 
 export const getWorkflows = (): Promise<ResourceRecord[]> => getResourceList('/api/v1/admin/resources/workflows')
 
-export const getSessions = async (agentId: string): Promise<SessionRecord[]> => {
-  const payload = await httpGet<AdminSessionListDto>(`/api/v1/admin/resources/sessions/${agentId}`)
-  return payload.data
+export const getAllResources = async (): Promise<ResourceRecord[]> => {
+  const [agents, tools, knowledge, workflows] = await Promise.all([
+    getAgents(),
+    getTools(),
+    getKnowledge(),
+    getWorkflows(),
+  ])
+
+  return [...agents, ...tools, ...knowledge, ...workflows]
 }
 
-export const getTracePayload = async (agentId: string): Promise<TracePayload> => {
-  await new Promise((resolve) => {
-    window.setTimeout(resolve, 600)
-  })
+export const getSessions = async (agentId: string): Promise<SessionRecord[]> => {
+  const payload = await httpGet<AdminSessionListDto>(`/api/v1/admin/resources/sessions/${agentId}`)
+  return payload.data.map(toSessionRecord)
+}
 
-  return {
-    agentId,
-    nodes: [
-      { id: 'planner', label: 'Planner', status: 'ok' },
-      { id: 'tool-router', label: 'Tool Router', status: 'warning' },
-      { id: 'safety-check', label: 'Safety Check', status: 'ok' },
-      { id: 'finalizer', label: 'Finalizer', status: 'ok' },
-    ],
-  }
+export const getSessionTrace = (sessionId: string): Promise<TraceResponse> =>
+  httpGet<TraceResponse>(`/api/v1/admin/trace/sessions/${sessionId}`)
+
+export const getSessionGuardrail = (sessionId: string): Promise<GuardrailDiagnostics> =>
+  httpGet<GuardrailDiagnostics>(`/api/v1/admin/guardrail/sessions/${sessionId}`)
+
+export const getLlmMetrics = (params?: { start?: string; end?: string }): Promise<LlmMetricsResponse> => {
+  const query = new URLSearchParams()
+  if (params?.start) query.set('start', params.start)
+  if (params?.end) query.set('end', params.end)
+  const suffix = query.toString() ? `?${query.toString()}` : ''
+  return httpGet<LlmMetricsResponse>(`/api/v1/admin/metrics/llm${suffix}`)
 }

@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 
-import { getAgents } from '../api/admin'
+import { getAllResources } from '../api/admin'
 import type { ResourceFilterOption, ResourceKind, ResourceRecord } from '../types/admin'
 
 const PAGE_SIZE = 6
@@ -15,7 +15,7 @@ export const resourceFilterOptions: ResourceFilterOption[] = [
 ]
 
 export const useResourceStore = defineStore('resource', () => {
-  const agents = ref<ResourceRecord[]>([])
+  const resources = ref<ResourceRecord[]>([])
   const loading = ref(false)
   const initialized = ref(false)
   const error = ref('')
@@ -29,7 +29,7 @@ export const useResourceStore = defineStore('resource', () => {
   const filteredResources = computed(() => {
     const query = searchQuery.value.trim().toLowerCase()
 
-    return agents.value.filter((resource) => {
+    return resources.value.filter((resource) => {
       const matchesType = activeFilter.value === 'all' || resource.type === activeFilter.value
       const matchesQuery =
         !query ||
@@ -50,15 +50,18 @@ export const useResourceStore = defineStore('resource', () => {
   })
 
   const selectedResource = computed(
-    () => agents.value.find((resource) => resource.id === selectedResourceId.value) ?? paginatedResources.value[0] ?? null,
+    () =>
+      resources.value.find((resource) => resource.id === selectedResourceId.value) ??
+      paginatedResources.value[0] ??
+      null,
   )
 
   const counts = computed(() => ({
-    all: agents.value.length,
-    agent: agents.value.filter((item) => item.type === 'agent').length,
-    tool: agents.value.filter((item) => item.type === 'tool').length,
-    knowledge: agents.value.filter((item) => item.type === 'knowledge').length,
-    workflow: agents.value.filter((item) => item.type === 'workflow').length,
+    all: resources.value.length,
+    agent: resources.value.filter((item) => item.type === 'agent').length,
+    tool: resources.value.filter((item) => item.type === 'tool').length,
+    knowledge: resources.value.filter((item) => item.type === 'knowledge').length,
+    workflow: resources.value.filter((item) => item.type === 'workflow').length,
   }))
 
   const syncPageBounds = () => {
@@ -67,22 +70,30 @@ export const useResourceStore = defineStore('resource', () => {
     }
   }
 
+  const syncSelection = (records: ResourceRecord[]) => {
+    const stillSelected = records.some((resource) => resource.id === selectedResourceId.value)
+    if (stillSelected) {
+      return
+    }
+
+    selectedResourceId.value =
+      records.find((resource) => resource.type === 'agent')?.id ?? records[0]?.id ?? ''
+  }
+
   watch(filteredResources, () => {
     syncPageBounds()
   })
 
-  const fetchAgents = async () => {
+  const fetchResources = async () => {
     loading.value = true
     error.value = ''
 
     try {
-      const records = await getAgents()
-      agents.value = records
+      const records = await getAllResources()
+      resources.value = records
       initialized.value = true
       lastUpdatedAt.value = new Date().toLocaleString()
-      if (!selectedResourceId.value && records.length) {
-        selectedResourceId.value = records[0].id
-      }
+      syncSelection(records)
       syncPageBounds()
     } catch (fetchError) {
       error.value = fetchError instanceof Error ? fetchError.message : 'Failed to load resources'
@@ -93,7 +104,7 @@ export const useResourceStore = defineStore('resource', () => {
 
   const ensureLoaded = async () => {
     if (!initialized.value && !loading.value) {
-      await fetchAgents()
+      await fetchResources()
     }
   }
 
@@ -120,7 +131,7 @@ export const useResourceStore = defineStore('resource', () => {
   }
 
   return {
-    agents,
+    resources,
     loading,
     error,
     activeFilter,
@@ -133,7 +144,7 @@ export const useResourceStore = defineStore('resource', () => {
     totalPages,
     selectedResource,
     counts,
-    fetchAgents,
+    fetchResources,
     ensureLoaded,
     setFilter,
     setSearchQuery,

@@ -6,8 +6,8 @@
           <p class="text-xs uppercase tracking-[0.35em] text-cyan-300/70">Resource Matrix</p>
           <h2 class="mt-2 text-2xl font-semibold text-slate-100">Operational asset grid for live agent resources</h2>
           <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-            This page is now backed by the real agents API. It is the first business-closed view in the dashboard and
-            the foundation for trace, monitoring, and control-plane workflows.
+            This page loads agents, tools, knowledge bases, and workflows from the Phase 1 admin APIs. It is the first
+            business-closed view in the dashboard and the foundation for trace, monitoring, and control-plane workflows.
           </p>
         </div>
 
@@ -57,7 +57,7 @@
           <button
             type="button"
             class="rounded-xl border border-slate-800/70 bg-slate-950/70 px-4 py-3 text-sm text-slate-300 transition hover:border-slate-700 hover:text-white"
-            @click="resourceStore.fetchAgents()"
+            @click="resourceStore.fetchResources()"
           >
             Refresh Matrix
           </button>
@@ -75,9 +75,9 @@
     <div v-else-if="error" class="space-y-4">
       <EmptyState
         title="Resource sync failed"
-        :description="`The agents endpoint did not return usable data. ${error}`"
+        :description="`The resource endpoints did not return usable data. ${error}`"
         action-label="Retry Sync"
-        @action="resourceStore.fetchAgents()"
+        @action="resourceStore.fetchResources()"
       />
     </div>
 

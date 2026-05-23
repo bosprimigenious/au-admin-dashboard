@@ -1,15 +1,40 @@
 import * as echarts from 'echarts'
-import { onBeforeUnmount, onMounted } from 'vue'
+import { onBeforeUnmount, watch } from 'vue'
 import type { Ref } from 'vue'
 
-export const useSafetyRadar = (chartRef: Ref<HTMLElement | null>) => {
+import type { GuardrailScores } from '../types/admin'
+
+const DEFAULT_SCORES: GuardrailScores = {
+  logic_consistency: 35,
+  info_entropy: 20,
+  diversity_ttr: 15,
+  lpp_feature: 25,
+  safety_score: 30,
+}
+
+export const useSafetyRadar = (chartRef: Ref<HTMLElement | null>, scores: Ref<GuardrailScores | null>) => {
   let chart: ReturnType<typeof echarts.init> | null = null
 
   const onResize = () => chart?.resize()
 
-  onMounted(() => {
-    if (!chartRef.value) return
-    chart = echarts.init(chartRef.value, 'dark', { renderer: 'svg' })
+  const renderChart = (nextScores: GuardrailScores) => {
+    if (!chartRef.value) {
+      return
+    }
+
+    const values = [
+      nextScores.logic_consistency,
+      nextScores.info_entropy,
+      nextScores.diversity_ttr,
+      nextScores.lpp_feature,
+      nextScores.safety_score,
+    ]
+    const color = nextScores.safety_score >= 75 ? '#10b981' : nextScores.safety_score >= 60 ? '#f59e0b' : '#ef4444'
+
+    if (!chart) {
+      chart = echarts.init(chartRef.value, 'dark', { renderer: 'svg' })
+      window.addEventListener('resize', onResize)
+    }
 
     chart.setOption({
       backgroundColor: 'transparent',
@@ -30,19 +55,25 @@ export const useSafetyRadar = (chartRef: Ref<HTMLElement | null>) => {
           type: 'radar',
           data: [
             {
-              value: [90, 85, 40, 30, 88],
+              value: values,
               name: 'Current Agent Output',
-              itemStyle: { color: '#10b981' },
-              areaStyle: { color: 'rgba(16, 185, 129, 0.3)' },
-              lineStyle: { width: 2, shadowBlur: 10, shadowColor: '#10b981' },
+              itemStyle: { color },
+              areaStyle: { color: `${color}4D` },
+              lineStyle: { width: 2, shadowBlur: 10, shadowColor: color },
             },
           ],
         },
       ],
     })
+  }
 
-    window.addEventListener('resize', onResize)
-  })
+  watch(
+    scores,
+    (nextScores) => {
+      renderChart(nextScores ?? DEFAULT_SCORES)
+    },
+    { immediate: true, deep: true },
+  )
 
   onBeforeUnmount(() => {
     window.removeEventListener('resize', onResize)

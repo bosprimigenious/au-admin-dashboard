@@ -9,6 +9,7 @@
       <nav class="flex flex-col gap-2 mt-8">
         <RouterLink to="/overview" class="nav-link" active-class="nav-link-active">Overview Dashboard</RouterLink>
         <RouterLink to="/resources" class="nav-link" active-class="nav-link-active">Resource Matrix</RouterLink>
+        <RouterLink to="/monitoring" class="nav-link" active-class="nav-link-active">Monitoring Center</RouterLink>
         <RouterLink :to="`/trace/${appStore.selectedAgentId}`" class="nav-link" active-class="nav-link-active">
           Agent Topology Trace
         </RouterLink>
