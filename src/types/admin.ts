@@ -3,6 +3,8 @@ export interface DashboardSummary {
   total_tools: number
   total_knowledge: number
   total_workflows: number
+  total_llms: number
+  total_memories: number
   system_health: string
   total_llm_calls_today: number
   total_tokens_today: number
@@ -25,6 +27,47 @@ export interface LlmMetricsResponse {
   total_tokens: number
   alerts: MonitoringAlert[]
   data_source?: 'otel' | 'message_estimate' | string
+  p95_latency_ms?: number
+  top_callers?: CallerRank[]
+  recent_calls?: RecentCall[]
+  resource_snapshot?: ResourceSnapshot | null
+}
+
+export interface CallerRank {
+  name: string
+  calls: number
+}
+
+export interface RecentCall {
+  ts: string
+  label: string
+  tokens: number
+}
+
+export interface ResourceSnapshot {
+  agents: number
+  tools: number
+  knowledge: number
+  workflows: number
+  llms: number
+  memories: number
+}
+
+export interface OptimizationSuggestion {
+  category: string
+  severity: string
+  message: string
+  action: string
+}
+
+export interface OptimizationResponse {
+  session_id: string
+  suggestions: OptimizationSuggestion[]
+}
+
+export interface AlertsResponse {
+  alerts: MonitoringAlert[]
+  total: number
 }
 
 export interface SessionRecord {
@@ -36,7 +79,7 @@ export interface SessionRecord {
   diagnostics?: Record<string, unknown> | null
 }
 
-export type ResourceKind = 'agent' | 'tool' | 'knowledge' | 'workflow'
+export type ResourceKind = 'agent' | 'tool' | 'knowledge' | 'workflow' | 'llm' | 'memory'
 
 export type ResourceStatus = 'running' | 'idle' | 'warning' | 'error' | 'draft' | 'unknown'
 

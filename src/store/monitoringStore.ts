@@ -14,6 +14,12 @@ export const useMonitoringStore = defineStore('monitoring', () => {
   const totalCalls = computed(() => metrics.value?.total_calls ?? 0)
   const totalTokens = computed(() => metrics.value?.total_tokens ?? 0)
   const dataSource = computed(() => metrics.value?.data_source ?? '')
+  const p95LatencyMs = computed(() => metrics.value?.p95_latency_ms ?? 0)
+  const topCallers = computed(() => metrics.value?.top_callers ?? [])
+  const recentCalls = computed(() => metrics.value?.recent_calls ?? [])
+  const resourceSnapshot = computed(() => metrics.value?.resource_snapshot ?? null)
+  const autoRefreshEnabled = ref(false)
+  let refreshTimer: ReturnType<typeof setInterval> | null = null
 
   const fetchMetrics = async (params?: { start?: string; end?: string }) => {
     loading.value = true
@@ -29,6 +35,19 @@ export const useMonitoringStore = defineStore('monitoring', () => {
     }
   }
 
+  const setAutoRefresh = (enabled: boolean, intervalMs = 30000) => {
+    autoRefreshEnabled.value = enabled
+    if (refreshTimer) {
+      clearInterval(refreshTimer)
+      refreshTimer = null
+    }
+    if (enabled) {
+      refreshTimer = setInterval(() => {
+        void fetchMetrics()
+      }, intervalMs)
+    }
+  }
+
   return {
     metrics,
     loading,
@@ -38,6 +57,12 @@ export const useMonitoringStore = defineStore('monitoring', () => {
     totalCalls,
     totalTokens,
     dataSource,
+    p95LatencyMs,
+    topCallers,
+    recentCalls,
+    resourceSnapshot,
+    autoRefreshEnabled,
     fetchMetrics,
+    setAutoRefresh,
   }
 })

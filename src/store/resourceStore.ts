@@ -12,6 +12,8 @@ export const resourceFilterOptions: ResourceFilterOption[] = [
   { label: 'Tools', value: 'tool' },
   { label: 'Knowledge', value: 'knowledge' },
   { label: 'Workflows', value: 'workflow' },
+  { label: 'LLMs', value: 'llm' },
+  { label: 'Memories', value: 'memory' },
 ]
 
 export const useResourceStore = defineStore('resource', () => {
@@ -62,6 +64,8 @@ export const useResourceStore = defineStore('resource', () => {
     tool: resources.value.filter((item) => item.type === 'tool').length,
     knowledge: resources.value.filter((item) => item.type === 'knowledge').length,
     workflow: resources.value.filter((item) => item.type === 'workflow').length,
+    llm: resources.value.filter((item) => item.type === 'llm').length,
+    memory: resources.value.filter((item) => item.type === 'memory').length,
   }))
 
   const syncPageBounds = () => {

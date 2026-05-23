@@ -1,9 +1,11 @@
 import { httpGet } from '../utils/request'
 import type {
+  AlertsResponse,
   AuthProfile,
   DashboardSummary,
   GuardrailDiagnostics,
   LlmMetricsResponse,
+  OptimizationResponse,
   ResourceKind,
   ResourceRecord,
   ResourceStatus,
@@ -29,7 +31,9 @@ interface AdminDashboardSummaryDto {
   total_tools: number
   total_knowledge: number
   total_workflows: number
-  system_health: string
+  total_llms?: number
+  total_memories?: number
+  system_health: string | number
   total_llm_calls_today?: number
   total_tokens_today?: number
 }
@@ -60,6 +64,10 @@ const mapComponentType = (value: string): ResourceKind => {
       return 'knowledge'
     case 'WORKFLOW':
       return 'workflow'
+    case 'LLM':
+      return 'llm'
+    case 'MEMORY':
+      return 'memory'
     default:
       throw new Error(`Unsupported component_type: ${normalized || 'unknown'}`)
   }
@@ -85,7 +93,12 @@ const mapResourceStatus = (value: string): ResourceStatus => {
   }
 }
 
-export const normalizeSystemHealth = (value: string): string => {
+export const normalizeSystemHealth = (value: string | number): string => {
+  if (typeof value === 'number') {
+    if (value >= 80) return 'healthy'
+    if (value >= 50) return 'degraded'
+    return 'unknown'
+  }
   switch (value.trim().toUpperCase()) {
     case 'OK':
       return 'healthy'
@@ -130,6 +143,8 @@ export const getSummary = async (): Promise<DashboardSummary> => {
   const payload = await httpGet<AdminDashboardSummaryDto>('/api/v1/admin/resources/summary')
   return {
     ...payload,
+    total_llms: payload.total_llms ?? 0,
+    total_memories: payload.total_memories ?? 0,
     total_llm_calls_today: payload.total_llm_calls_today ?? 0,
     total_tokens_today: payload.total_tokens_today ?? 0,
     system_health: normalizeSystemHealth(payload.system_health),
@@ -144,15 +159,21 @@ export const getKnowledge = (): Promise<ResourceRecord[]> => getResourceList('/a
 
 export const getWorkflows = (): Promise<ResourceRecord[]> => getResourceList('/api/v1/admin/resources/workflows')
 
+export const getLlms = (): Promise<ResourceRecord[]> => getResourceList('/api/v1/admin/resources/llms')
+
+export const getMemories = (): Promise<ResourceRecord[]> => getResourceList('/api/v1/admin/resources/memories')
+
 export const getAllResources = async (): Promise<ResourceRecord[]> => {
-  const [agents, tools, knowledge, workflows] = await Promise.all([
+  const [agents, tools, knowledge, workflows, llms, memories] = await Promise.all([
     getAgents(),
     getTools(),
     getKnowledge(),
     getWorkflows(),
+    getLlms(),
+    getMemories(),
   ])
 
-  return [...agents, ...tools, ...knowledge, ...workflows]
+  return [...agents, ...tools, ...knowledge, ...workflows, ...llms, ...memories]
 }
 
 export const getSessions = async (agentId: string): Promise<SessionRecord[]> => {
@@ -175,3 +196,8 @@ export const getLlmMetrics = (params?: { start?: string; end?: string }): Promis
 }
 
 export const getAuthMe = (): Promise<AuthProfile> => httpGet<AuthProfile>('/api/v1/admin/auth/me')
+
+export const getAlerts = (): Promise<AlertsResponse> => httpGet<AlertsResponse>('/api/v1/admin/alerts')
+
+export const getSessionOptimization = (sessionId: string): Promise<OptimizationResponse> =>
+  httpGet<OptimizationResponse>(`/api/v1/admin/optimization/sessions/${sessionId}`)

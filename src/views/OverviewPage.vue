@@ -1,14 +1,19 @@
 <template>
   <section>
     <OverviewCards />
-    <div class="mt-8 grid grid-cols-1 xl:grid-cols-3 gap-8">
-      <div class="xl:col-span-2 min-h-[420px]">
-        <div class="glass-card flex h-full min-h-[400px] flex-col justify-center px-8">
+
+    <div class="mt-8 grid grid-cols-1 gap-8 xl:grid-cols-3">
+      <div class="xl:col-span-2 space-y-8">
+        <ComponentStatusChart :items="statusItems" />
+        <RecentCallsList :calls="recentCalls" :loading="monitoringLoading" />
+      </div>
+      <div class="space-y-8">
+        <SafetyRadarPanel :diagnostics="null" />
+        <div class="glass-card">
           <p class="text-xs uppercase tracking-[0.35em] text-cyan-300/70">Trace Preview</p>
-          <h3 class="mt-3 text-xl font-semibold text-slate-100">Open Agent Topology Trace for session graphs</h3>
-          <p class="mt-3 max-w-xl text-sm leading-6 text-slate-400">
-            Overview focuses on resource health. Session-level execution topology is available on the dedicated trace
-            page with G6 rendering and timeline inspection.
+          <h3 class="mt-3 text-lg font-semibold text-slate-100">Session topology & optimization</h3>
+          <p class="mt-3 text-sm leading-6 text-slate-400">
+            Inspect execution graphs, timeline steps, and rule-driven optimization suggestions per session.
           </p>
           <RouterLink
             :to="`/trace/${appStore.selectedAgentId}`"
@@ -18,19 +23,40 @@
           </RouterLink>
         </div>
       </div>
-      <div class="xl:col-span-1 min-h-[420px]">
-        <SafetyRadarPanel :diagnostics="null" />
-      </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
+import { storeToRefs } from 'pinia'
 
+import ComponentStatusChart from '../components/ComponentStatusChart.vue'
 import OverviewCards from '../components/OverviewCards.vue'
+import RecentCallsList from '../components/RecentCallsList.vue'
 import SafetyRadarPanel from '../components/SafetyRadarPanel.vue'
 import { useAppStore } from '../store/appStore'
+import { useMonitoringStore } from '../store/monitoringStore'
+import { useResourceStore } from '../store/resourceStore'
 
 const appStore = useAppStore()
+const resourceStore = useResourceStore()
+const monitoringStore = useMonitoringStore()
+
+const { counts } = storeToRefs(resourceStore)
+const { loading: monitoringLoading, recentCalls } = storeToRefs(monitoringStore)
+
+const statusItems = computed(() => [
+  { name: 'Agents', value: counts.value.agent },
+  { name: 'Tools', value: counts.value.tool },
+  { name: 'Knowledge', value: counts.value.knowledge },
+  { name: 'Workflows', value: counts.value.workflow },
+  { name: 'LLMs', value: counts.value.llm },
+  { name: 'Memories', value: counts.value.memory },
+])
+
+onMounted(async () => {
+  await Promise.all([resourceStore.ensureLoaded(), monitoringStore.fetchMetrics()])
+})
 </script>

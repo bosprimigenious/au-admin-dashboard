@@ -62,19 +62,48 @@ describe('resourceStore', () => {
     vi.restoreAllMocks()
   })
 
-  it('并行加载四类资源并更新计数', async () => {
-    vi.spyOn(adminApi, 'getAllResources').mockResolvedValue(sampleResources)
+  it('并行加载六类资源并更新计数', async () => {
+    const sixTypes = [
+      ...sampleResources,
+      {
+        id: 'llm-1',
+        name: 'Demo LLM',
+        type: 'llm' as const,
+        status: 'running' as const,
+        description: 'LLM resource',
+        model: 'Not exposed',
+        version: 'Phase 1',
+        owner: 'System',
+        updatedAt: 'Not exposed',
+        tags: [],
+      },
+      {
+        id: 'mem-1',
+        name: 'Demo Memory',
+        type: 'memory' as const,
+        status: 'running' as const,
+        description: 'Memory resource',
+        model: 'Not exposed',
+        version: 'Phase 1',
+        owner: 'System',
+        updatedAt: 'Not exposed',
+        tags: [],
+      },
+    ]
+    vi.spyOn(adminApi, 'getAllResources').mockResolvedValue(sixTypes)
 
     const store = useResourceStore()
     await store.fetchResources()
 
-    expect(store.resources).toHaveLength(4)
+    expect(store.resources).toHaveLength(6)
     expect(store.counts).toEqual({
-      all: 4,
+      all: 6,
       agent: 1,
       tool: 1,
       knowledge: 1,
       workflow: 1,
+      llm: 1,
+      memory: 1,
     })
     expect(store.selectedResource?.id).toBe('agent-1')
   })

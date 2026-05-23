@@ -1,5 +1,5 @@
 <template>
-  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
     <div
       v-for="item in stats"
       :key="item.label"
@@ -54,6 +54,8 @@ const toStats = (r: DashboardSummary) => [
   { label: 'Total Tools', value: r.total_tools },
   { label: 'Knowledge Bases', value: r.total_knowledge },
   { label: 'Workflows', value: r.total_workflows },
+  { label: 'LLMs', value: r.total_llms },
+  { label: 'Memories', value: r.total_memories },
   { label: 'LLM Calls Today', value: r.total_llm_calls_today },
   { label: 'Tokens Today', value: r.total_tokens_today },
 ]
@@ -73,6 +75,8 @@ const fetchSummary = async () => {
       total_tools: 0,
       total_knowledge: 0,
       total_workflows: 0,
+      total_llms: 0,
+      total_memories: 0,
       total_llm_calls_today: 0,
       total_tokens_today: 0,
       system_health: 'degraded',

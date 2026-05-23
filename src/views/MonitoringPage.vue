@@ -6,21 +6,26 @@
           <p class="text-xs uppercase tracking-[0.35em] text-cyan-300/70">Monitoring Center</p>
           <h2 class="mt-2 text-2xl font-semibold text-slate-100">LLM usage and alert stream</h2>
           <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-            Metrics prefer OpenTelemetry LLM spans when
-            <code class="text-cyan-200">ADMIN_OTEL_SPAN_DIR</code> is available; otherwise session messages are used
-            with estimated token counts.
+            Metrics prefer OpenTelemetry LLM spans when available; otherwise session messages are used with estimated
+            token counts.
           </p>
           <p v-if="dataSource" class="mt-2 text-xs uppercase tracking-[0.24em] text-cyan-300/80">
             Source: {{ dataSource }}
           </p>
         </div>
-        <button
-          type="button"
-          class="rounded-xl border border-slate-800/70 bg-slate-950/70 px-4 py-3 text-sm text-slate-300 transition hover:border-slate-700 hover:text-white"
-          @click="monitoringStore.fetchMetrics()"
-        >
-          Refresh Metrics
-        </button>
+        <div class="flex flex-wrap gap-3">
+          <label class="flex items-center gap-2 text-sm text-slate-400">
+            <input v-model="autoRefresh" type="checkbox" class="rounded border-slate-700" @change="toggleAutoRefresh" />
+            Auto refresh (30s)
+          </label>
+          <button
+            type="button"
+            class="rounded-xl border border-slate-800/70 bg-slate-950/70 px-4 py-3 text-sm text-slate-300 transition hover:border-slate-700 hover:text-white"
+            @click="monitoringStore.fetchMetrics()"
+          >
+            Refresh Metrics
+          </button>
+        </div>
       </div>
     </div>
 
@@ -28,7 +33,7 @@
       {{ error }}
     </div>
 
-    <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
       <div class="glass-card">
         <p class="text-xs uppercase tracking-[0.22em] text-slate-500">Total Calls</p>
         <p class="mt-2 text-3xl font-semibold text-slate-100">{{ totalCalls }}</p>
@@ -38,12 +43,49 @@
         <p class="mt-2 text-3xl font-semibold text-slate-100">{{ totalTokens }}</p>
       </div>
       <div class="glass-card">
+        <p class="text-xs uppercase tracking-[0.22em] text-slate-500">P95 Latency</p>
+        <p class="mt-2 text-3xl font-semibold text-slate-100">{{ p95LatencyMs.toFixed(0) }} ms</p>
+      </div>
+      <div class="glass-card">
         <p class="text-xs uppercase tracking-[0.22em] text-slate-500">Alerts</p>
         <p class="mt-2 text-3xl font-semibold text-slate-100">{{ alerts.length }}</p>
       </div>
     </div>
 
-    <LlmTrendChart :series="series" :loading="loading" />
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
+      <div class="xl:col-span-2">
+        <LlmTrendChart :series="series" :loading="loading" />
+      </div>
+      <RecentCallsList :calls="recentCalls" :loading="loading" />
+    </div>
+
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <div class="glass-card">
+        <h3 class="mb-4 text-sm font-medium uppercase tracking-[0.24em] text-slate-400">Top Callers</h3>
+        <ul v-if="topCallers.length" class="space-y-3">
+          <li
+            v-for="caller in topCallers"
+            :key="caller.name"
+            class="flex items-center justify-between rounded-xl border border-slate-800/70 bg-slate-950/60 px-4 py-3 text-sm"
+          >
+            <span class="text-slate-200">{{ caller.name }}</span>
+            <span class="text-cyan-300/80">{{ caller.calls }} calls</span>
+          </li>
+        </ul>
+        <p v-else class="text-sm text-slate-500">No caller ranking available for this window.</p>
+      </div>
+
+      <div class="glass-card">
+        <h3 class="mb-4 text-sm font-medium uppercase tracking-[0.24em] text-slate-400">System Resources</h3>
+        <dl v-if="resourceSnapshot" class="grid grid-cols-2 gap-3 text-sm">
+          <div v-for="item in resourceRows" :key="item.label">
+            <dt class="text-xs uppercase tracking-[0.18em] text-slate-500">{{ item.label }}</dt>
+            <dd class="mt-1 text-xl font-semibold text-slate-100">{{ item.value }}</dd>
+          </div>
+        </dl>
+        <p v-else class="text-sm text-slate-500">Resource snapshot unavailable.</p>
+      </div>
+    </div>
 
     <div class="glass-card">
       <h3 class="mb-4 text-sm font-medium uppercase tracking-[0.24em] text-slate-400">Alert Stream</h3>
@@ -64,14 +106,42 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import LlmTrendChart from '../components/LlmTrendChart.vue'
+import RecentCallsList from '../components/RecentCallsList.vue'
 import { useMonitoringStore } from '../store/monitoringStore'
 
 const monitoringStore = useMonitoringStore()
-const { alerts, dataSource, error, loading, series, totalCalls, totalTokens } = storeToRefs(monitoringStore)
+const {
+  alerts,
+  dataSource,
+  error,
+  loading,
+  p95LatencyMs,
+  recentCalls,
+  resourceSnapshot,
+  series,
+  topCallers,
+  totalCalls,
+  totalTokens,
+} = storeToRefs(monitoringStore)
+
+const autoRefresh = ref(false)
+
+const resourceRows = computed(() => {
+  const snapshot = resourceSnapshot.value
+  if (!snapshot) return []
+  return [
+    { label: 'Agents', value: snapshot.agents },
+    { label: 'Tools', value: snapshot.tools },
+    { label: 'Knowledge', value: snapshot.knowledge },
+    { label: 'Workflows', value: snapshot.workflows },
+    { label: 'LLMs', value: snapshot.llms },
+    { label: 'Memories', value: snapshot.memories },
+  ]
+})
 
 const alertClass = (level: string) => {
   switch (level) {
@@ -84,7 +154,15 @@ const alertClass = (level: string) => {
   }
 }
 
+const toggleAutoRefresh = () => {
+  monitoringStore.setAutoRefresh(autoRefresh.value)
+}
+
 onMounted(async () => {
   await monitoringStore.fetchMetrics()
+})
+
+onBeforeUnmount(() => {
+  monitoringStore.setAutoRefresh(false)
 })
 </script>
