@@ -47,11 +47,10 @@
           <label class="flex items-center gap-3 rounded-xl border border-slate-800/70 bg-slate-950/70 px-4 py-3">
             <span class="text-xs uppercase tracking-[0.22em] text-slate-500">Search</span>
             <input
-              :value="searchQuery"
+              v-model="searchInput"
               type="text"
               placeholder="Find by name, model, tag..."
               class="w-56 bg-transparent text-sm text-slate-200 outline-none placeholder:text-slate-500"
-              @input="resourceStore.setSearchQuery(($event.target as HTMLInputElement).value)"
             />
           </label>
           <button
@@ -179,7 +178,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import EmptyState from '../components/EmptyState.vue'
@@ -206,8 +205,27 @@ const {
   totalPages,
 } = storeToRefs(resourceStore)
 
+const searchInput = ref(searchQuery.value)
+const searchDebounceMs = 300
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+const commitSearchQuery = (value: string) => {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = null
+  }
+  searchDebounceTimer = setTimeout(() => {
+    resourceStore.setSearchQuery(value)
+  }, searchDebounceMs)
+}
+
+watch(searchInput, (value) => {
+  commitSearchQuery(value)
+})
+
 const resetFilters = () => {
   resourceStore.setFilter('all')
+  searchInput.value = ''
   resourceStore.setSearchQuery('')
 }
 
@@ -220,6 +238,13 @@ onMounted(async () => {
   await resourceStore.ensureLoaded()
   if (selectedResource.value) {
     appStore.setSelectedAgentId(selectedResource.value.id)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = null
   }
 })
 </script>

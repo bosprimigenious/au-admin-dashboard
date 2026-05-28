@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import AdminLayout from '../layouts/AdminLayout.vue'
 import MonitoringPage from '../views/MonitoringPage.vue'
 import OverviewPage from '../views/OverviewPage.vue'
+import ServicePage from '../views/ServicePage.vue'
 import ResourcesPage from '../views/ResourcesPage.vue'
 import TraceDetailPage from '../views/TraceDetailPage.vue'
 
@@ -15,6 +16,7 @@ export const router = createRouter({
       children: [
         { path: '', redirect: '/overview' },
         { path: '/overview', component: OverviewPage },
+        { path: '/services', component: ServicePage },
         { path: '/resources', component: ResourcesPage },
         { path: '/trace/:agentId/:sessionId?', component: TraceDetailPage, props: true },
         { path: '/monitoring', component: MonitoringPage },

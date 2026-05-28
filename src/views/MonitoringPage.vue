@@ -52,6 +52,58 @@
       </div>
     </div>
 
+    <div class="glass-card space-y-4">
+      <div>
+        <h3 class="text-sm font-medium uppercase tracking-[0.24em] text-slate-400">Alert Notifications</h3>
+        <p class="mt-2 text-sm text-slate-500">
+          Notification channels are stored locally until a backend configuration endpoint exists.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <label class="space-y-2 text-sm text-slate-400">
+          <span class="text-xs uppercase tracking-[0.22em] text-slate-500">Webhook URL</span>
+          <input
+            v-model="notificationConfig.webhookUrl"
+            type="url"
+            class="w-full rounded-xl border border-slate-800/70 bg-slate-950/70 px-4 py-3 text-slate-200 outline-none"
+            placeholder="https://example.com/webhook"
+          />
+        </label>
+        <label class="space-y-2 text-sm text-slate-400">
+          <span class="text-xs uppercase tracking-[0.22em] text-slate-500">Email Address</span>
+          <input
+            v-model="notificationConfig.email"
+            type="email"
+            class="w-full rounded-xl border border-slate-800/70 bg-slate-950/70 px-4 py-3 text-slate-200 outline-none"
+            placeholder="alerts@example.com"
+          />
+        </label>
+        <div class="space-y-3 text-sm text-slate-400">
+          <span class="text-xs uppercase tracking-[0.22em] text-slate-500">Channels</span>
+          <label class="flex items-center gap-2">
+            <input v-model="notificationConfig.webhookEnabled" type="checkbox" class="rounded border-slate-700" />
+            Webhook
+          </label>
+          <label class="flex items-center gap-2">
+            <input v-model="notificationConfig.emailEnabled" type="checkbox" class="rounded border-slate-700" />
+            Email
+          </label>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          class="rounded-xl border border-slate-800/70 bg-slate-950/70 px-4 py-3 text-sm text-slate-300 transition hover:border-slate-700 hover:text-white"
+          @click="saveNotificationConfig"
+        >
+          Save Notification Settings
+        </button>
+        <p class="text-sm text-emerald-300" :class="saveMessage ? 'opacity-100' : 'opacity-0'">{{ saveMessage }}</p>
+      </div>
+    </div>
+
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
       <div class="xl:col-span-2">
         <LlmTrendChart :series="series" :loading="loading" />
@@ -129,6 +181,39 @@ const {
 } = storeToRefs(monitoringStore)
 
 const autoRefresh = ref(false)
+const saveMessage = ref('')
+const notificationConfig = ref({
+  webhookUrl: '',
+  email: '',
+  webhookEnabled: true,
+  emailEnabled: false,
+})
+
+const NOTIFICATION_STORAGE_KEY = 'au-monitoring-notification-config'
+
+const loadNotificationConfig = () => {
+  const raw = window.localStorage.getItem(NOTIFICATION_STORAGE_KEY)
+  if (!raw) return
+  try {
+    const parsed = JSON.parse(raw) as typeof notificationConfig.value
+    notificationConfig.value = {
+      webhookUrl: parsed.webhookUrl ?? '',
+      email: parsed.email ?? '',
+      webhookEnabled: Boolean(parsed.webhookEnabled),
+      emailEnabled: Boolean(parsed.emailEnabled),
+    }
+  } catch {
+    // Ignore malformed local config and keep defaults.
+  }
+}
+
+const saveNotificationConfig = () => {
+  window.localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(notificationConfig.value))
+  saveMessage.value = 'Notification settings saved locally.'
+  window.setTimeout(() => {
+    saveMessage.value = ''
+  }, 1800)
+}
 
 const resourceRows = computed(() => {
   const snapshot = resourceSnapshot.value
@@ -159,6 +244,7 @@ const toggleAutoRefresh = () => {
 }
 
 onMounted(async () => {
+  loadNotificationConfig()
   await monitoringStore.fetchMetrics()
 })
 

@@ -27,7 +27,7 @@
       </div>
     </div>
 
-    <div class="mt-5 flex flex-wrap gap-2" v-if="resource.tags.length">
+    <div v-if="resource.tags.length" class="mt-5 flex flex-wrap gap-2">
       <span
         v-for="tag in resource.tags.slice(0, 3)"
         :key="tag"

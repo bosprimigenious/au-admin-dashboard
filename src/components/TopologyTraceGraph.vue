@@ -21,13 +21,36 @@
     </div>
 
     <div v-else class="flex-1 min-h-[360px] flex flex-col gap-4">
+      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <label class="relative block w-full md:max-w-xs">
+          <span class="sr-only">Search nodes</span>
+          <input
+            v-model="searchTerm"
+            type="search"
+            class="w-full rounded-xl border border-slate-800/70 bg-slate-950/70 px-4 py-2 text-sm text-slate-200 outline-none transition focus:border-cyan-300/40"
+            placeholder="Search node name"
+          />
+        </label>
+        <div class="flex flex-wrap gap-3 text-xs text-slate-400">
+          <span class="inline-flex items-center gap-2">
+            <span class="h-2 w-5 rounded-full bg-red-400" />
+            Failed Nodes
+          </span>
+          <span class="inline-flex items-center gap-2">
+            <span class="h-1 w-6 rounded-full bg-cyan-300" />
+            Critical Path
+          </span>
+        </div>
+      </div>
+
       <div ref="graphRef" class="flex-1 min-h-[320px] rounded-xl border border-slate-800/70 bg-slate-950/40" />
 
       <ul v-if="!graphReady" class="space-y-3 overflow-auto">
         <li
           v-for="node in trace.nodes"
           :key="node.id"
-          class="flex items-center justify-between rounded-lg border border-slate-800/50 bg-slate-900/50 px-3 py-2 text-sm"
+          class="flex items-center justify-between rounded-lg border bg-slate-900/50 px-3 py-2 text-sm"
+          :class="fallbackNodeClass(node)"
         >
           <div>
             <p class="text-slate-200">{{ node.name }}</p>
@@ -44,9 +67,9 @@
 
 <script setup lang="ts">
 import { Graph } from '@antv/g6'
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
-import type { TraceNodeStatus, TraceResponse } from '../types/admin'
+import type { TraceEdge, TraceNode, TraceNodeStatus, TraceResponse } from '../types/admin'
 
 const emit = defineEmits<{
   'node-select': [nodeId: string]
@@ -66,7 +89,15 @@ const props = withDefaults(
 
 const graphRef = ref<HTMLDivElement | null>(null)
 const graphReady = ref(false)
+const searchTerm = ref('')
 let graph: Graph | null = null
+
+const normalizedSearch = computed(() => searchTerm.value.trim().toLowerCase())
+
+const matchesSearch = (node: TraceNode) => {
+  if (!normalizedSearch.value) return false
+  return node.name.toLowerCase().includes(normalizedSearch.value)
+}
 
 const statusClass = (status: TraceNodeStatus) => {
   switch (status) {
@@ -90,6 +121,69 @@ const nodeFill = (status: TraceNodeStatus) => {
   }
 }
 
+const fallbackNodeClass = (node: TraceNode) => {
+  if (matchesSearch(node)) {
+    return 'border-cyan-300/60 shadow-[0_0_18px_rgba(34,211,238,0.18)]'
+  }
+  if (node.status === 'failed') {
+    return 'border-red-400/70'
+  }
+  return 'border-slate-800/50'
+}
+
+const findCriticalPath = (nodes: TraceNode[], edges: TraceEdge[]) => {
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]))
+  const outgoing = new Map<string, TraceEdge[]>()
+  const indegree = new Map(nodes.map((node) => [node.id, 0]))
+
+  for (const edge of edges) {
+    if (!nodeMap.has(edge.source) || !nodeMap.has(edge.target)) continue
+    outgoing.set(edge.source, [...(outgoing.get(edge.source) ?? []), edge])
+    indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1)
+  }
+
+  const queue = nodes.filter((node) => (indegree.get(node.id) ?? 0) === 0).map((node) => node.id)
+  const scores = new Map(nodes.map((node) => [node.id, node.duration]))
+  const previous = new Map<string, string>()
+  const ordered: string[] = []
+
+  while (queue.length) {
+    const nodeId = queue.shift()
+    if (!nodeId) continue
+    ordered.push(nodeId)
+
+    for (const edge of outgoing.get(nodeId) ?? []) {
+      const nextNode = nodeMap.get(edge.target)
+      if (!nextNode) continue
+
+      const nextScore = (scores.get(nodeId) ?? 0) + nextNode.duration
+      if (nextScore > (scores.get(edge.target) ?? 0)) {
+        scores.set(edge.target, nextScore)
+        previous.set(edge.target, nodeId)
+      }
+
+      indegree.set(edge.target, (indegree.get(edge.target) ?? 0) - 1)
+      if ((indegree.get(edge.target) ?? 0) === 0) {
+        queue.push(edge.target)
+      }
+    }
+  }
+
+  if (!ordered.length) return new Set<string>()
+
+  let tail = ordered.reduce((best, nodeId) => ((scores.get(nodeId) ?? 0) > (scores.get(best) ?? 0) ? nodeId : best))
+  const criticalEdges = new Set<string>()
+
+  while (previous.has(tail)) {
+    const source = previous.get(tail)
+    if (!source) break
+    criticalEdges.add(`${source}->${tail}`)
+    tail = source
+  }
+
+  return criticalEdges
+}
+
 const destroyGraph = () => {
   graph?.destroy()
   graph = null
@@ -104,6 +198,7 @@ const renderGraph = async (trace: TraceResponse) => {
 
   const width = graphRef.value.clientWidth || 640
   const height = Math.max(graphRef.value.clientHeight, 320)
+  const criticalEdges = findCriticalPath(trace.nodes, trace.edges)
 
   const data = {
     nodes: trace.nodes.map((node) => ({
@@ -112,13 +207,16 @@ const renderGraph = async (trace: TraceResponse) => {
         label: node.name,
         status: node.status,
         type: node.type,
+        searchMatch: matchesSearch(node),
       },
     })),
     edges: trace.edges.map((edge) => ({
+      id: `${edge.source}->${edge.target}`,
       source: edge.source,
       target: edge.target,
       data: {
         label: edge.label ?? '',
+        critical: criticalEdges.has(`${edge.source}->${edge.target}`),
       },
     })),
   }
@@ -142,7 +240,12 @@ const renderGraph = async (trace: TraceResponse) => {
             size: [180, 40],
             radius: 8,
             fill: (datum) => nodeFill((datum.data?.status as TraceNodeStatus) ?? 'running'),
-            stroke: '#334155',
+            stroke: (datum) => {
+              if (datum.data?.searchMatch) return '#22d3ee'
+              if (datum.data?.status === 'failed') return '#f87171'
+              return '#334155'
+            },
+            lineWidth: (datum) => (datum.data?.status === 'failed' || datum.data?.searchMatch ? 3 : 1),
             labelText: (datum) => String(datum.data?.label ?? datum.id),
             labelFill: '#e2e8f0',
             labelFontSize: 11,
@@ -153,7 +256,8 @@ const renderGraph = async (trace: TraceResponse) => {
         edge: {
           type: 'line',
           style: {
-            stroke: '#64748b',
+            stroke: (datum) => (datum.data?.critical ? '#22d3ee' : '#64748b'),
+            lineWidth: (datum) => (datum.data?.critical ? 3 : 1),
             endArrow: true,
           },
         },
@@ -181,8 +285,8 @@ const renderGraph = async (trace: TraceResponse) => {
 }
 
 watch(
-  () => props.trace,
-  (trace) => {
+  () => [props.trace, normalizedSearch.value] as const,
+  ([trace]) => {
     if (!trace?.nodes.length) {
       destroyGraph()
       return
