@@ -68,9 +68,49 @@
         <TopologyTraceGraph
           :trace="trace"
           :loading="loadingTrace"
+          :active-node-id="selectedNodeId"
           empty-message="Choose a session from the left panel to render its execution topology."
           @node-select="selectNode"
         />
+
+        <div class="glass-card">
+          <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 class="text-sm font-medium uppercase tracking-[0.24em] text-slate-400">Replay</h3>
+              <p class="mt-2 text-sm text-slate-500">{{ replayStatus }}</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-800/70 bg-slate-950/70 px-3 text-sm text-slate-200 transition hover:border-cyan-300/40 disabled:cursor-not-allowed disabled:opacity-40"
+                :disabled="!canReplay"
+                @click="toggleReplay"
+              >
+                <Pause v-if="isReplaying" class="h-4 w-4" />
+                <Play v-else class="h-4 w-4" />
+                {{ isReplaying ? 'Pause' : 'Play' }}
+              </button>
+              <button
+                type="button"
+                class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-800/70 bg-slate-950/70 px-3 text-sm text-slate-200 transition hover:border-cyan-300/40 disabled:cursor-not-allowed disabled:opacity-40"
+                :disabled="!canReplay"
+                @click="stepReplay"
+              >
+                <StepForward class="h-4 w-4" />
+                Step
+              </button>
+              <select
+                v-model.number="replaySpeed"
+                class="h-9 rounded-lg border border-slate-800/70 bg-slate-950/70 px-3 text-sm text-slate-200 outline-none"
+                aria-label="Replay speed"
+              >
+                <option :value="1">1x</option>
+                <option :value="2">2x</option>
+                <option :value="4">4x</option>
+              </select>
+            </div>
+          </div>
+        </div>
 
         <OptimizationPanel :session-id="selectedSessionId" />
 
@@ -85,8 +125,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import { Pause, Play, StepForward } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 
 import EmptyState from '../components/EmptyState.vue'
@@ -111,6 +152,10 @@ const traceStore = useTraceStore()
 
 const agentInput = ref('')
 const selectedNodeId = ref('')
+const replayIndex = ref(0)
+const isReplaying = ref(false)
+const replaySpeed = ref<1 | 2 | 4>(1)
+let replayTimer: ReturnType<typeof window.setInterval> | null = null
 
 const selectedNode = computed<TraceNode | null>(() => {
   if (!trace.value || !selectedNodeId.value) {
@@ -129,6 +174,13 @@ const {
   loadingTrace,
   error,
 } = storeToRefs(traceStore)
+
+const canReplay = computed(() => timeline.value.length > 0)
+
+const replayStatus = computed(() => {
+  if (!timeline.value.length) return 'Load a session trace to replay node execution.'
+  return `Step ${Math.min(replayIndex.value + 1, timeline.value.length)} of ${timeline.value.length}`
+})
 
 const resolveAgentId = () => {
   const fromRoute = typeof route.params.agentId === 'string' ? route.params.agentId : ''
@@ -165,10 +217,60 @@ const goToResources = () => {
 
 const selectNode = (nodeId: string) => {
   selectedNodeId.value = nodeId
+  const nextIndex = timeline.value.findIndex((node) => node.id === nodeId)
+  if (nextIndex >= 0) {
+    replayIndex.value = nextIndex
+  }
+}
+
+const stopReplay = () => {
+  isReplaying.value = false
+  if (replayTimer) {
+    window.clearInterval(replayTimer)
+    replayTimer = null
+  }
+}
+
+const focusReplayStep = (index: number) => {
+  if (!timeline.value.length) return
+  replayIndex.value = Math.min(Math.max(index, 0), timeline.value.length - 1)
+  selectedNodeId.value = timeline.value[replayIndex.value]?.id ?? ''
+}
+
+const stepReplay = () => {
+  if (!timeline.value.length) return
+  if (replayIndex.value >= timeline.value.length - 1) {
+    focusReplayStep(0)
+    stopReplay()
+    return
+  }
+  focusReplayStep(replayIndex.value + 1)
+}
+
+const startReplay = () => {
+  if (!timeline.value.length) return
+  if (!selectedNodeId.value) {
+    focusReplayStep(0)
+  }
+  isReplaying.value = true
+  if (replayTimer) {
+    window.clearInterval(replayTimer)
+  }
+  replayTimer = window.setInterval(stepReplay, 1200 / replaySpeed.value)
+}
+
+const toggleReplay = () => {
+  if (isReplaying.value) {
+    stopReplay()
+    return
+  }
+  startReplay()
 }
 
 const selectSession = async (sessionId: string) => {
   selectedNodeId.value = ''
+  replayIndex.value = 0
+  stopReplay()
   await traceStore.fetchTrace(sessionId)
   syncRoute(activeAgentId.value, sessionId)
 }
@@ -193,7 +295,20 @@ watch(
   },
 )
 
+watch(replaySpeed, () => {
+  if (isReplaying.value) {
+    startReplay()
+  }
+})
+
+watch(timeline, () => {
+  replayIndex.value = 0
+  stopReplay()
+})
+
 onMounted(async () => {
   await reloadCurrentAgent()
 })
+
+onBeforeUnmount(stopReplay)
 </script>

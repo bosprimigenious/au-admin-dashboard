@@ -88,6 +88,7 @@ const props = withDefaults(
     trace: TraceResponse | null
     loading?: boolean
     emptyMessage?: string
+    activeNodeId?: string
   }>(),
   {
     loading: false,
@@ -130,6 +131,9 @@ const nodeFill = (status: TraceNodeStatus) => {
 }
 
 const fallbackNodeClass = (node: TraceNode) => {
+  if (props.activeNodeId === node.id) {
+    return 'border-amber-300/70 bg-amber-300/10 shadow-[0_0_18px_rgba(251,191,36,0.18)]'
+  }
   if (matchesSearch(node)) {
     return 'border-cyan-300/60 shadow-[0_0_18px_rgba(34,211,238,0.18)]'
   }
@@ -227,6 +231,7 @@ const renderGraph = async (trace: TraceResponse) => {
         status: node.status,
         type: node.type,
         searchMatch: matchesSearch(node),
+        active: props.activeNodeId === node.id,
       },
     })),
     edges: trace.edges.map((edge) => ({
@@ -260,11 +265,13 @@ const renderGraph = async (trace: TraceResponse) => {
             radius: 8,
             fill: (datum) => nodeFill((datum.data?.status as TraceNodeStatus) ?? 'running'),
             stroke: (datum) => {
+              if (datum.data?.active) return '#fbbf24'
               if (datum.data?.searchMatch) return '#22d3ee'
               if (datum.data?.status === 'failed') return '#f87171'
               return '#334155'
             },
-            lineWidth: (datum) => (datum.data?.status === 'failed' || datum.data?.searchMatch ? 3 : 1),
+            lineWidth: (datum) =>
+              datum.data?.active || datum.data?.status === 'failed' || datum.data?.searchMatch ? 3 : 1,
             labelText: (datum) => String(datum.data?.label ?? datum.id),
             labelFill: '#e2e8f0',
             labelFontSize: 11,
@@ -304,7 +311,7 @@ const renderGraph = async (trace: TraceResponse) => {
 }
 
 watch(
-  () => [props.trace, normalizedSearch.value] as const,
+  () => [props.trace, normalizedSearch.value, props.activeNodeId] as const,
   ([trace]) => {
     if (!trace?.nodes.length) {
       destroyGraph()
