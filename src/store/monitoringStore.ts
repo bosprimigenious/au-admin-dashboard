@@ -35,6 +35,8 @@ export const useMonitoringStore = defineStore('monitoring', () => {
     }
   }
 
+  const fetchLlmMetrics = fetchMetrics
+
   const setAutoRefresh = (enabled: boolean, intervalMs = 30000) => {
     autoRefreshEnabled.value = enabled
     if (refreshTimer) {
@@ -63,6 +65,7 @@ export const useMonitoringStore = defineStore('monitoring', () => {
     resourceSnapshot,
     autoRefreshEnabled,
     fetchMetrics,
+    fetchLlmMetrics,
     setAutoRefresh,
   }
 })

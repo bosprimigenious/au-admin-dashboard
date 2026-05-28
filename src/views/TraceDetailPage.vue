@@ -39,10 +39,10 @@
 
         <EmptyState
           v-else-if="!sessions.length"
-          title="No sessions found"
-          description="This agent has no persisted sessions yet. Run an agent conversation first, then refresh."
-          action-label="Reload Sessions"
-          @action="reloadCurrentAgent"
+          title="暂无会话记录"
+          description="该资源暂无会话记录，请先返回资源页，或运行一次对话后再刷新。"
+          action-label="返回资源页"
+          @action="goToResources"
         />
 
         <ul v-else class="space-y-3">
@@ -72,6 +72,8 @@
           @node-select="selectNode"
         />
 
+        <OptimizationPanel :session-id="selectedSessionId" />
+
         <TraceNodeDetailPanel :node="selectedNode" />
 
         <TimelineView :steps="timeline" :selected-node-id="selectedNodeId" @select="selectNode" />
@@ -88,6 +90,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
 import EmptyState from '../components/EmptyState.vue'
+import OptimizationPanel from '../components/OptimizationPanel.vue'
 import SafetyRadarPanel from '../components/SafetyRadarPanel.vue'
 import TimelineView from '../components/TimelineView.vue'
 import TraceNodeDetailPanel from '../components/TraceNodeDetailPanel.vue'
@@ -154,6 +157,10 @@ const reloadCurrentAgent = async () => {
   agentInput.value = nextAgentId
   await traceStore.loadAgentTrace(nextAgentId)
   syncRoute(nextAgentId, traceStore.selectedSessionId)
+}
+
+const goToResources = () => {
+  void router.replace('/resources')
 }
 
 const selectNode = (nodeId: string) => {
