@@ -1,14 +1,34 @@
-import { vi } from 'vitest'
+import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import TopologyTraceGraph from '../TopologyTraceGraph.vue'
+
+const graphMock = vi.hoisted(() => ({
+  shouldThrow: true,
+  handlers: new Map<string, (event: unknown) => void>(),
+  render: vi.fn(() => Promise.resolve()),
+  setData: vi.fn(() => Promise.resolve()),
+  setSize: vi.fn(),
+  destroy: vi.fn(),
+}))
 
 vi.mock('@antv/g6', () => ({
   Graph: class MockGraph {
     constructor() {
-      throw new Error('graph unavailable in test')
+      if (graphMock.shouldThrow) {
+        throw new Error('graph unavailable in test')
+      }
     }
+
+    on(eventName: string, handler: (event: unknown) => void) {
+      graphMock.handlers.set(eventName, handler)
+    }
+
+    render = graphMock.render
+    setData = graphMock.setData
+    setSize = graphMock.setSize
+    destroy = graphMock.destroy
   },
 }))
 
@@ -42,6 +62,33 @@ const trace = {
 }
 
 describe('TopologyTraceGraph', () => {
+  beforeEach(() => {
+    graphMock.shouldThrow = true
+    graphMock.handlers.clear()
+    graphMock.render.mockClear()
+    graphMock.setData.mockClear()
+    graphMock.setSize.mockClear()
+    graphMock.destroy.mockClear()
+  })
+
+  it('shows loading and empty states', async () => {
+    const wrapper = mount(TopologyTraceGraph, {
+      props: {
+        trace: null,
+        loading: true,
+      },
+    })
+
+    expect(wrapper.text()).toContain('Building topology graph...')
+
+    await wrapper.setProps({
+      loading: false,
+      emptyMessage: 'Pick a trace session.',
+    })
+
+    expect(wrapper.text()).toContain('Pick a trace session.')
+  })
+
   it('shows search and trace legend controls', () => {
     const wrapper = mount(TopologyTraceGraph, {
       props: {
@@ -66,5 +113,36 @@ describe('TopologyTraceGraph', () => {
     await wrapper.get('input[type="search"]').setValue('critical')
 
     expect(wrapper.text()).toContain('Critical LLM')
+    expect(wrapper.findAll('li')[1].classes()).toContain('border-cyan-300/60')
+  })
+
+  it('marks failed nodes in fallback list', () => {
+    const wrapper = mount(TopologyTraceGraph, {
+      props: {
+        trace,
+        loading: false,
+      },
+    })
+
+    expect(wrapper.findAll('li')[1].classes()).toContain('border-red-400/70')
+    expect(wrapper.text()).toContain('failed')
+  })
+
+  it('emits selected node id from graph node clicks', async () => {
+    graphMock.shouldThrow = false
+
+    const wrapper = mount(TopologyTraceGraph, {
+      attachTo: document.body,
+      props: {
+        trace,
+        loading: false,
+      },
+    })
+
+    await nextTick()
+    await Promise.resolve()
+    graphMock.handlers.get('node:click')?.({ target: { id: 'n2' } })
+
+    expect(wrapper.emitted('node-select')).toEqual([['n2']])
   })
 })

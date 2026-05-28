@@ -20,7 +20,7 @@
 
 <script setup lang="ts">
 import * as echarts from 'echarts'
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 
 import type { MetricPoint } from '../types/admin'
@@ -116,7 +116,14 @@ const renderChart = (series: MetricPoint[]) => {
 watch(
   () => props.series,
   (series) => {
-    renderChart(series)
+    if (!series.length) {
+      destroyChart()
+      return
+    }
+
+    void nextTick(() => {
+      renderChart(series)
+    })
   },
   { immediate: true, deep: true },
 )
