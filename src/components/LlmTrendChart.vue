@@ -5,7 +5,10 @@
         <h3 class="text-lg font-medium text-slate-200">{{ title }}</h3>
         <p v-if="subtitle" class="mt-1 text-xs text-slate-500">{{ subtitle }}</p>
       </div>
-      <span v-if="loading" class="text-xs text-cyan-300/80">Refreshing...</span>
+      <div class="flex items-center gap-3">
+        <span v-if="loading" class="text-xs text-cyan-300/80">Refreshing...</span>
+        <ChartExportButton file-name="llm-trend" :get-data-url="getChartDataUrl" :disabled="!series.length" />
+      </div>
     </div>
 
     <div v-if="loading" class="flex h-[320px] items-center justify-center text-sm text-slate-500">
@@ -23,7 +26,10 @@ import * as echarts from 'echarts'
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 
+import ChartExportButton from './ChartExportButton.vue'
 import type { MetricPoint } from '../types/admin'
+
+type ChartExportFormat = 'png' | 'svg'
 
 const props = withDefaults(
   defineProps<{
@@ -50,6 +56,15 @@ const destroyChart = () => {
   window.removeEventListener('resize', onResize)
   chart?.dispose()
   chart = null
+}
+
+const getChartDataUrl = (format: ChartExportFormat) => {
+  if (!chart) return ''
+  return chart.getDataURL({
+    type: format,
+    pixelRatio: 2,
+    backgroundColor: '#020617',
+  })
 }
 
 const renderChart = (series: MetricPoint[]) => {

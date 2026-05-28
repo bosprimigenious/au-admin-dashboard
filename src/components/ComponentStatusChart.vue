@@ -1,8 +1,13 @@
 <template>
   <div class="glass-card h-full min-h-[320px]">
     <div class="mb-4">
-      <h3 class="text-lg font-medium text-slate-200">Component Status</h3>
-      <p class="mt-1 text-xs text-slate-500">Registered resource distribution</p>
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-medium text-slate-200">Component Status</h3>
+          <p class="mt-1 text-xs text-slate-500">Registered resource distribution</p>
+        </div>
+        <ChartExportButton file-name="component-status" :get-data-url="getChartDataUrl" :disabled="!items.length" />
+      </div>
     </div>
     <div v-if="!items.length" class="flex h-[260px] items-center justify-center text-sm text-slate-500">
       No resource data loaded yet.
@@ -13,7 +18,10 @@
 
 <script setup lang="ts">
 import * as echarts from 'echarts'
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import ChartExportButton from './ChartExportButton.vue'
+
+type ChartExportFormat = 'png' | 'svg'
 
 const props = defineProps<{
   items: { name: string; value: number }[]
@@ -28,6 +36,15 @@ const destroyChart = () => {
   window.removeEventListener('resize', onResize)
   chart?.dispose()
   chart = null
+}
+
+const getChartDataUrl = (format: ChartExportFormat) => {
+  if (!chart) return ''
+  return chart.getDataURL({
+    type: format,
+    pixelRatio: 2,
+    backgroundColor: '#020617',
+  })
 }
 
 const renderChart = (items: { name: string; value: number }[]) => {
@@ -55,7 +72,16 @@ const renderChart = (items: { name: string; value: number }[]) => {
 
 watch(
   () => props.items,
-  (items) => renderChart(items),
+  (items) => {
+    if (!items.length) {
+      destroyChart()
+      return
+    }
+
+    void nextTick(() => {
+      renderChart(items)
+    })
+  },
   { immediate: true, deep: true },
 )
 

@@ -41,6 +41,11 @@
             Critical Path
           </span>
         </div>
+        <ChartExportButton
+          file-name="topology-trace"
+          :get-data-url="getGraphDataUrl"
+          :disabled="!trace?.nodes.length"
+        />
       </div>
 
       <div ref="graphRef" class="flex-1 min-h-[320px] rounded-xl border border-slate-800/70 bg-slate-950/40" />
@@ -69,7 +74,10 @@
 import { Graph } from '@antv/g6'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
+import ChartExportButton from './ChartExportButton.vue'
 import type { TraceEdge, TraceNode, TraceNodeStatus, TraceResponse } from '../types/admin'
+
+type ChartExportFormat = 'png' | 'svg'
 
 const emit = defineEmits<{
   'node-select': [nodeId: string]
@@ -188,6 +196,17 @@ const destroyGraph = () => {
   graph?.destroy()
   graph = null
   graphReady.value = false
+}
+
+const getGraphDataUrl = async (format: ChartExportFormat) => {
+  const exporter = graph as unknown as {
+    toDataURL?: (options?: { type?: string; backgroundColor?: string }) => string | Promise<string>
+  }
+  if (!exporter?.toDataURL) return ''
+  return exporter.toDataURL({
+    type: format === 'svg' ? 'image/svg+xml' : 'image/png',
+    backgroundColor: '#020617',
+  })
 }
 
 const renderGraph = async (trace: TraceResponse) => {

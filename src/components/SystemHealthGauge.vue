@@ -5,7 +5,10 @@
         <p class="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">System Health</p>
         <h3 class="mt-2 text-lg font-semibold text-slate-100">{{ healthLabel }}</h3>
       </div>
-      <span class="rounded-md border px-2 py-1 text-xs font-medium" :class="badgeClass">{{ boundedHealth }}</span>
+      <div class="flex items-center gap-3">
+        <ChartExportButton file-name="system-health" :get-data-url="getChartDataUrl" />
+        <span class="rounded-md border px-2 py-1 text-xs font-medium" :class="badgeClass">{{ boundedHealth }}</span>
+      </div>
     </div>
 
     <div ref="chartRef" class="h-[220px] w-full" />
@@ -14,7 +17,11 @@
 
 <script setup lang="ts">
 import * as echarts from 'echarts'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+
+import ChartExportButton from './ChartExportButton.vue'
+
+type ChartExportFormat = 'png' | 'svg'
 
 const props = defineProps<{
   health: number
@@ -44,6 +51,15 @@ const badgeClass = computed(() => {
 })
 
 const onResize = () => chart?.resize()
+
+const getChartDataUrl = (format: ChartExportFormat) => {
+  if (!chart) return ''
+  return chart.getDataURL({
+    type: format,
+    pixelRatio: 2,
+    backgroundColor: '#020617',
+  })
+}
 
 const renderChart = () => {
   if (!chartRef.value) return
@@ -105,7 +121,13 @@ const renderChart = () => {
   })
 }
 
-watch(boundedHealth, renderChart, { immediate: true })
+watch(
+  boundedHealth,
+  () => {
+    void nextTick(renderChart)
+  },
+  { immediate: true },
+)
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
